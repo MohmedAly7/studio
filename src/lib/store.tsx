@@ -72,61 +72,68 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       transactions: [],
     };
     setProducts(prev => [...prev, newProduct]);
-    toast({
-      title: "Product Added",
-      description: `${newProduct.name} has been added to your inventory.`,
-    });
+    setTimeout(() => {
+      toast({
+        title: "Product Added",
+        description: `${newProduct.name} has been added to your inventory.`,
+      });
+    }, 0);
   }, [toast]);
 
   const addTransaction = useCallback((productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => {
-    const productToUpdate = products.find(p => p.id === productId);
+    setProducts(currentProducts => {
+      const productToUpdate = currentProducts.find(p => p.id === productId);
 
-    if (!productToUpdate) {
-      toast({
-        variant: "destructive",
-        title: "Transaction Failed",
-        description: "Product not found.",
-      });
-      return;
-    }
-
-    if (transactionData.type === 'sale' && productToUpdate.stock < transactionData.quantity) {
-      toast({
-        variant: "destructive",
-        title: "Transaction Failed",
-        description: `Not enough stock for ${productToUpdate.name}.`,
-      });
-      return;
-    }
-
-    const newTransaction: Transaction = {
-      ...transactionData,
-      id: `txn-${Date.now()}`,
-      date: new Date().toISOString(),
-    };
-
-    setProducts(prev => prev.map(p => {
-      if (p.id === productId) {
-        let newStock = p.stock;
-        if (newTransaction.type === 'sale') {
-          newStock -= newTransaction.quantity;
-        } else {
-          newStock += newTransaction.quantity;
-        }
-        return {
-          ...p,
-          stock: newStock,
-          transactions: [...p.transactions, newTransaction],
-        };
+      if (!productToUpdate) {
+        setTimeout(() => {
+          toast({
+            variant: "destructive",
+            title: "Transaction Failed",
+            description: "Product not found.",
+          });
+        }, 0);
+        return currentProducts;
       }
-      return p;
-    }));
-    
-    toast({
-      title: "Transaction Recorded",
-      description: `A new ${newTransaction.type} for ${productToUpdate.name} has been recorded.`,
+
+      if (transactionData.type === 'sale' && productToUpdate.stock < transactionData.quantity) {
+        setTimeout(() => {
+          toast({
+            variant: "destructive",
+            title: "Transaction Failed",
+            description: `Not enough stock for ${productToUpdate.name}.`,
+          });
+        }, 0);
+        return currentProducts;
+      }
+
+      const newTransaction: Transaction = {
+        ...transactionData,
+        id: `txn-${Date.now()}`,
+        date: new Date().toISOString(),
+      };
+
+      const updatedProducts = currentProducts.map(p => {
+        if (p.id === productId) {
+          const newStock = p.stock + (transactionData.type === 'purchase' ? transactionData.quantity : -transactionData.quantity);
+          return {
+            ...p,
+            stock: newStock,
+            transactions: [...p.transactions, newTransaction],
+          };
+        }
+        return p;
+      });
+
+      setTimeout(() => {
+        toast({
+          title: "Transaction Recorded",
+          description: `A new ${newTransaction.type} for ${productToUpdate.name} has been recorded.`,
+        });
+      }, 0);
+
+      return updatedProducts;
     });
-  }, [products, toast]);
+  }, [toast]);
 
   const getProductById = useCallback((id: string) => {
     return products.find(p => p.id === id);
