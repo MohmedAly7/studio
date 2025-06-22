@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, Home, Package, AreaChart } from 'lucide-react';
+import { BarChart3, Home, Package, AreaChart, FileDown } from 'lucide-react';
 
 const Logo = () => (
   <div className="flex items-center gap-2">
@@ -81,6 +81,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link href="/stats">
                   <BarChart3 />
                   <span>Statistics</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/export'}
+                tooltip={{ children: 'Export' }}
+              >
+                <Link href="/export">
+                  <FileDown />
+                  <span>Export</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
