@@ -44,10 +44,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader>
-          <div className="flex items-center justify-between">
-            <Logo />
-            <SidebarTrigger />
-          </div>
+          <Logo />
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
@@ -94,6 +91,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
+        <header className="flex h-14 items-center justify-end border-b bg-background px-4 sm:px-6 lg:px-8">
+            <SidebarTrigger />
+        </header>
         <main className="p-4 sm:p-6 lg:p-8">
             {children}
         </main>
