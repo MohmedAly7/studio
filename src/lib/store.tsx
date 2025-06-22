@@ -55,6 +55,7 @@ interface ProductContextType {
   addProduct: (productData: { name: string; initialStock: number; lowStockThreshold: number; }) => void;
   addTransaction: (productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => void;
   getProductById: (id: string) => Product | undefined;
+  deleteProduct: (productId: string) => void;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -80,39 +81,47 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     }, 0);
   }, [toast]);
 
-  const addTransaction = useCallback((productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => {
+  const deleteProduct = useCallback((productId: string) => {
     setProducts(currentProducts => {
-      const productToUpdate = currentProducts.find(p => p.id === productId);
-
-      if (!productToUpdate) {
+      const productToDelete = currentProducts.find(p => p.id === productId);
+      const updatedProducts = currentProducts.filter(p => p.id !== productId);
+      
+      if (productToDelete) {
         setTimeout(() => {
           toast({
-            variant: "destructive",
-            title: "Transaction Failed",
-            description: "Product not found.",
+            title: "Product Deleted",
+            description: `${productToDelete.name} has been removed from your inventory.`,
           });
         }, 0);
+      }
+      return updatedProducts;
+    });
+  }, [toast]);
+
+  const addTransaction = useCallback((productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => {
+    let outcome: 'success' | 'not_found' | 'no_stock' = 'success';
+    let productToUpdate: Product | undefined;
+
+    setProducts(currentProducts => {
+      productToUpdate = currentProducts.find(p => p.id === productId);
+
+      if (!productToUpdate) {
+        outcome = 'not_found';
         return currentProducts;
       }
 
       if (transactionData.type === 'sale' && productToUpdate.stock < transactionData.quantity) {
-        setTimeout(() => {
-          toast({
-            variant: "destructive",
-            title: "Transaction Failed",
-            description: `Not enough stock for ${productToUpdate.name}.`,
-          });
-        }, 0);
+        outcome = 'no_stock';
         return currentProducts;
       }
-
+      
       const newTransaction: Transaction = {
         ...transactionData,
         id: `txn-${Date.now()}`,
         date: new Date().toISOString(),
       };
 
-      const updatedProducts = currentProducts.map(p => {
+      return currentProducts.map(p => {
         if (p.id === productId) {
           const newStock = p.stock + (transactionData.type === 'purchase' ? transactionData.quantity : -transactionData.quantity);
           return {
@@ -123,23 +132,35 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         }
         return p;
       });
+    });
 
-      setTimeout(() => {
+    setTimeout(() => {
+      if (outcome === 'success' && productToUpdate) {
         toast({
           title: "Transaction Recorded",
-          description: `A new ${newTransaction.type} for ${productToUpdate.name} has been recorded.`,
+          description: `A new ${transactionData.type} for ${productToUpdate.name} has been recorded.`,
         });
-      }, 0);
-
-      return updatedProducts;
-    });
+      } else if (outcome === 'not_found') {
+        toast({
+          variant: "destructive",
+          title: "Transaction Failed",
+          description: "Product not found.",
+        });
+      } else if (outcome === 'no_stock' && productToUpdate) {
+        toast({
+            variant: "destructive",
+            title: "Transaction Failed",
+            description: `Not enough stock for ${productToUpdate.name}.`,
+        });
+      }
+    }, 0);
   }, [toast]);
 
   const getProductById = useCallback((id: string) => {
     return products.find(p => p.id === id);
   }, [products]);
 
-  const value = { products, addProduct, addTransaction, getProductById };
+  const value = { products, addProduct, addTransaction, getProductById, deleteProduct };
 
   return (
     <ProductContext.Provider value={value}>

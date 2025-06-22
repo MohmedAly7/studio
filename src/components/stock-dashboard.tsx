@@ -14,17 +14,19 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PlusCircle, MoreHorizontal, AlertTriangle, Truck, BrainCircuit, ShoppingCart, DollarSign } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { PlusCircle, MoreHorizontal, AlertTriangle, Truck, BrainCircuit, ShoppingCart, Trash2 } from 'lucide-react';
 import AddProductDialog from './add-product-dialog';
 import RecordTransactionDialog from './record-transaction-dialog';
 import ReorderSuggestionDialog from './reorder-suggestion-dialog';
+import DeleteProductDialog from './delete-product-dialog';
 
 export default function StockDashboard() {
-  const { products } = useProducts();
+  const { products, deleteProduct } = useProducts();
   const [isAddProductOpen, setAddProductOpen] = useState(false);
   const [isRecordTxnOpen, setRecordTxnOpen] = useState(false);
   const [isReorderOpen, setReorderOpen] = useState(false);
+  const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [transactionType, setTransactionType] = useState<'sale' | 'purchase'>('sale');
 
@@ -37,6 +39,18 @@ export default function StockDashboard() {
   const handleReorderSuggestion = (product: Product) => {
     setSelectedProduct(product);
     setReorderOpen(true);
+  };
+
+  const handleDeleteProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setDeleteOpen(true);
+  };
+
+  const confirmDeleteProduct = () => {
+    if (selectedProduct) {
+      deleteProduct(selectedProduct.id);
+      // No need to close here, onConfirm in dialog does it.
+    }
   };
 
   return (
@@ -104,6 +118,14 @@ export default function StockDashboard() {
                               <BrainCircuit className="mr-2 h-4 w-4" />
                               Reorder Suggestion
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                              onClick={() => handleDeleteProduct(product)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Product
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -140,6 +162,13 @@ export default function StockDashboard() {
           product={selectedProduct}
         />
       )}
+
+      <DeleteProductDialog
+        open={isDeleteOpen}
+        onOpenChange={setDeleteOpen}
+        product={selectedProduct}
+        onConfirm={confirmDeleteProduct}
+      />
     </div>
   );
 }
