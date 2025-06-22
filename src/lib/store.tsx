@@ -79,6 +79,26 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
   }, [toast]);
 
   const addTransaction = useCallback((productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => {
+    const productToUpdate = products.find(p => p.id === productId);
+
+    if (!productToUpdate) {
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: "Product not found.",
+      });
+      return;
+    }
+
+    if (transactionData.type === 'sale' && productToUpdate.stock < transactionData.quantity) {
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: `Not enough stock for ${productToUpdate.name}.`,
+      });
+      return;
+    }
+
     const newTransaction: Transaction = {
       ...transactionData,
       id: `txn-${Date.now()}`,
@@ -89,24 +109,10 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       if (p.id === productId) {
         let newStock = p.stock;
         if (newTransaction.type === 'sale') {
-          if (newStock < newTransaction.quantity) {
-             toast({
-              variant: "destructive",
-              title: "Transaction Failed",
-              description: `Not enough stock for ${p.name}.`,
-            })
-            return p; // Do not update if stock is insufficient
-          }
           newStock -= newTransaction.quantity;
         } else {
           newStock += newTransaction.quantity;
         }
-
-        toast({
-            title: "Transaction Recorded",
-            description: `A new ${newTransaction.type} for ${p.name} has been recorded.`,
-        });
-
         return {
           ...p,
           stock: newStock,
@@ -115,7 +121,12 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       }
       return p;
     }));
-  }, [toast]);
+    
+    toast({
+      title: "Transaction Recorded",
+      description: `A new ${newTransaction.type} for ${productToUpdate.name} has been recorded.`,
+    });
+  }, [products, toast]);
 
   const getProductById = useCallback((id: string) => {
     return products.find(p => p.id === id);
