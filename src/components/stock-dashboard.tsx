@@ -15,8 +15,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PlusCircle, MoreHorizontal, AlertTriangle, Truck, BrainCircuit, ShoppingCart, Trash2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, AlertTriangle, Truck, BrainCircuit, ShoppingCart, Trash2, FilePen } from 'lucide-react';
 import AddProductDialog from './add-product-dialog';
+import EditProductDialog from './edit-product-dialog';
 import RecordTransactionDialog from './record-transaction-dialog';
 import ReorderSuggestionDialog from './reorder-suggestion-dialog';
 import DeleteProductDialog from './delete-product-dialog';
@@ -24,6 +25,7 @@ import DeleteProductDialog from './delete-product-dialog';
 export default function StockDashboard() {
   const { products, deleteProduct } = useProducts();
   const [isAddProductOpen, setAddProductOpen] = useState(false);
+  const [isEditProductOpen, setEditProductOpen] = useState(false);
   const [isRecordTxnOpen, setRecordTxnOpen] = useState(false);
   const [isReorderOpen, setReorderOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
@@ -34,6 +36,11 @@ export default function StockDashboard() {
     setSelectedProduct(product);
     setTransactionType(type);
     setRecordTxnOpen(true);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setEditProductOpen(true);
   };
   
   const handleReorderSuggestion = (product: Product) => {
@@ -114,6 +121,10 @@ export default function StockDashboard() {
                               <Truck className="mr-2 h-4 w-4" />
                               Record Purchase
                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleEditProduct(product)}>
+                              <FilePen className="mr-2 h-4 w-4" />
+                              Edit Product
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleReorderSuggestion(product)}>
                               <BrainCircuit className="mr-2 h-4 w-4" />
                               Reorder Suggestion
@@ -146,6 +157,14 @@ export default function StockDashboard() {
 
       <AddProductDialog open={isAddProductOpen} onOpenChange={setAddProductOpen} />
       
+      {selectedProduct && (
+        <EditProductDialog
+          open={isEditProductOpen}
+          onOpenChange={setEditProductOpen}
+          product={selectedProduct}
+        />
+      )}
+
       {selectedProduct && (
         <RecordTransactionDialog
           open={isRecordTxnOpen}

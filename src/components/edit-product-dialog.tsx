@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useProducts } from '@/lib/store';
+import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,33 +27,38 @@ import {
 
 const productSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
-  initialStock: z.coerce.number().int().min(0, { message: "Initial stock cannot be negative." }),
-  purchasePrice: z.coerce.number().min(0, { message: "Purchase price cannot be negative." }),
   lowStockThreshold: z.coerce.number().int().min(0, { message: "Low stock threshold cannot be negative." }),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
 
-interface AddProductDialogProps {
+interface EditProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  product: Product;
 }
 
-export default function AddProductDialog({ open, onOpenChange }: AddProductDialogProps) {
-  const { addProduct } = useProducts();
+export default function EditProductDialog({ open, onOpenChange, product }: EditProductDialogProps) {
+  const { editProduct } = useProducts();
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: '',
-      initialStock: 0,
-      purchasePrice: 0,
-      lowStockThreshold: 10,
+      name: product.name,
+      lowStockThreshold: product.lowStockThreshold,
     },
   });
 
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        name: product.name,
+        lowStockThreshold: product.lowStockThreshold,
+      });
+    }
+  }, [open, product, form]);
+
   const onSubmit = (data: ProductFormData) => {
-    addProduct(data);
-    form.reset();
+    editProduct(product.id, data);
     onOpenChange(false);
   };
 
@@ -59,9 +66,9 @@ export default function AddProductDialog({ open, onOpenChange }: AddProductDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>Edit Product</DialogTitle>
           <DialogDescription>
-            Enter the details of the new product to add it to your inventory.
+            Update the details for {product.name}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -81,32 +88,6 @@ export default function AddProductDialog({ open, onOpenChange }: AddProductDialo
             />
             <FormField
               control={form.control}
-              name="initialStock"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Initial Stock Quantity</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="e.g., 100" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="purchasePrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Purchase Price per Unit (for initial stock)</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" placeholder="e.g., 5.50" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="lowStockThreshold"
               render={({ field }) => (
                 <FormItem>
@@ -119,7 +100,7 @@ export default function AddProductDialog({ open, onOpenChange }: AddProductDialo
               )}
             />
             <DialogFooter>
-                <Button type="submit">Add Product</Button>
+                <Button type="submit">Save Changes</Button>
             </DialogFooter>
           </form>
         </Form>

@@ -52,7 +52,8 @@ const initialProducts: Product[] = [
 
 interface ProductContextType {
   products: Product[];
-  addProduct: (productData: { name: string; initialStock: number; lowStockThreshold: number; }) => void;
+  addProduct: (productData: { name: string; initialStock: number; lowStockThreshold: number; purchasePrice: number; }) => void;
+  editProduct: (productId: string, productData: { name: string; lowStockThreshold: number; }) => void;
   addTransaction: (productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => void;
   getProductById: (id: string) => Product | undefined;
   deleteProduct: (productId: string) => void;
@@ -64,7 +65,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const { toast } = useToast();
 
-  const addProduct = useCallback((productData: { name: string; initialStock: number; lowStockThreshold: number; }) => {
+  const addProduct = useCallback((productData: { name: string; initialStock: number; lowStockThreshold: number; purchasePrice: number; }) => {
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
       name: productData.name,
@@ -72,12 +73,48 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       lowStockThreshold: productData.lowStockThreshold,
       transactions: [],
     };
+
+    if (productData.initialStock > 0 && productData.purchasePrice >= 0) {
+      const initialTransaction: Transaction = {
+        id: `txn-${Date.now() + 1}`,
+        type: 'purchase',
+        quantity: productData.initialStock,
+        pricePerUnit: productData.purchasePrice,
+        date: new Date().toISOString(),
+      };
+      newProduct.transactions.push(initialTransaction);
+    }
+
     setProducts(prev => [...prev, newProduct]);
     setTimeout(() => {
       toast({
         title: "Product Added",
         description: `${newProduct.name} has been added to your inventory.`,
       });
+    }, 0);
+  }, [toast]);
+
+  const editProduct = useCallback((productId: string, productData: { name: string; lowStockThreshold: number; }) => {
+    let productName = '';
+    setProducts(currentProducts => currentProducts.map(p => {
+      if (p.id === productId) {
+        productName = productData.name;
+        return {
+          ...p,
+          name: productData.name,
+          lowStockThreshold: productData.lowStockThreshold,
+        };
+      }
+      return p;
+    }));
+
+    setTimeout(() => {
+        if (productName) {
+            toast({
+                title: "Product Updated",
+                description: `${productName} has been updated.`,
+            });
+        }
     }, 0);
   }, [toast]);
 
@@ -160,7 +197,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     return products.find(p => p.id === id);
   }, [products]);
 
-  const value = { products, addProduct, addTransaction, getProductById, deleteProduct };
+  const value = { products, addProduct, editProduct, addTransaction, getProductById, deleteProduct };
 
   return (
     <ProductContext.Provider value={value}>
