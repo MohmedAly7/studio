@@ -6,6 +6,11 @@ import { useToast } from "@/hooks/use-toast"
 
 const LOCAL_STORAGE_KEY = 'stockflow-products';
 
+// Use a fixed date to prevent hydration mismatches from Date.now()
+const baseDate = new Date('2024-05-01T00:00:00.000Z');
+const getDate = (daysAgo: number) => new Date(baseDate.getTime() - daysAgo * 86400000).toISOString();
+
+
 const initialProducts: Product[] = [
   {
     id: 'prod-1',
@@ -13,9 +18,9 @@ const initialProducts: Product[] = [
     stock: 85,
     lowStockThreshold: 20,
     transactions: [
-      { id: 'txn-1', type: 'purchase', quantity: 100, pricePerUnit: 5.50, date: new Date(Date.now() - 20 * 86400000).toISOString() },
-      { id: 'txn-2', type: 'sale', quantity: 10, pricePerUnit: 12.00, date: new Date(Date.now() - 15 * 86400000).toISOString() },
-      { id: 'txn-3', type: 'sale', quantity: 5, pricePerUnit: 12.50, date: new Date(Date.now() - 5 * 86400000).toISOString() },
+      { id: 'txn-1', type: 'purchase', quantity: 100, pricePerUnit: 5.50, date: getDate(20) },
+      { id: 'txn-2', type: 'sale', quantity: 10, pricePerUnit: 12.00, date: getDate(15) },
+      { id: 'txn-3', type: 'sale', quantity: 5, pricePerUnit: 12.50, date: getDate(5) },
     ],
   },
   {
@@ -24,9 +29,9 @@ const initialProducts: Product[] = [
     stock: 40,
     lowStockThreshold: 15,
     transactions: [
-      { id: 'txn-4', type: 'purchase', quantity: 50, pricePerUnit: 15.00, date: new Date(Date.now() - 30 * 86400000).toISOString() },
-      { id: 'txn-5', type: 'sale', quantity: 5, pricePerUnit: 25.00, date: new Date(Date.now() - 20 * 86400000).toISOString() },
-      { id: 'txn-6', type: 'sale', quantity: 5, pricePerUnit: 25.00, date: new Date(Date.now() - 10 * 86400000).toISOString() },
+      { id: 'txn-4', type: 'purchase', quantity: 50, pricePerUnit: 15.00, date: getDate(30) },
+      { id: 'txn-5', type: 'sale', quantity: 5, pricePerUnit: 25.00, date: getDate(20) },
+      { id: 'txn-6', type: 'sale', quantity: 5, pricePerUnit: 25.00, date: getDate(10) },
     ],
   },
   {
@@ -35,9 +40,9 @@ const initialProducts: Product[] = [
     stock: 120,
     lowStockThreshold: 30,
     transactions: [
-      { id: 'txn-7', type: 'purchase', quantity: 150, pricePerUnit: 2.50, date: new Date(Date.now() - 25 * 86400000).toISOString() },
-      { id: 'txn-8', type: 'sale', quantity: 20, pricePerUnit: 5.00, date: new Date(Date.now() - 12 * 86400000).toISOString() },
-      { id: 'txn-9', type: 'sale', quantity: 10, pricePerUnit: 5.25, date: new Date(Date.now() - 3 * 86400000).toISOString() },
+      { id: 'txn-7', type: 'purchase', quantity: 150, pricePerUnit: 2.50, date: getDate(25) },
+      { id: 'txn-8', type: 'sale', quantity: 20, pricePerUnit: 5.00, date: getDate(12) },
+      { id: 'txn-9', type: 'sale', quantity: 10, pricePerUnit: 5.25, date: getDate(3) },
     ],
   },
     {
@@ -46,8 +51,8 @@ const initialProducts: Product[] = [
     stock: 8,
     lowStockThreshold: 10,
     transactions: [
-      { id: 'txn-10', type: 'purchase', quantity: 50, pricePerUnit: 8.00, date: new Date(Date.now() - 40 * 86400000).toISOString() },
-      { id: 'txn-11', type: 'sale', quantity: 42, pricePerUnit: 18.00, date: new Date(Date.now() - 7 * 86400000).toISOString() },
+      { id: 'txn-10', type: 'purchase', quantity: 50, pricePerUnit: 8.00, date: getDate(40) },
+      { id: 'txn-11', type: 'sale', quantity: 42, pricePerUnit: 18.00, date: getDate(7) },
     ],
   },
 ];
@@ -65,7 +70,7 @@ interface ProductContextType {
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const { toast } = useToast();
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -75,13 +80,9 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedProducts) {
         setProducts(JSON.parse(storedProducts));
-      } else {
-        // If nothing in localStorage, use initialProducts
-        setProducts(initialProducts);
       }
     } catch (error) {
       console.error("Failed to parse products from localStorage", error);
-      setProducts(initialProducts);
     }
     setIsInitialized(true);
   }, []);
