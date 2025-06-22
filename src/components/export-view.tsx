@@ -50,7 +50,7 @@ export default function ExportView() {
       return;
     }
 
-    const headers = ['ProductName', 'TransactionID', 'Type', 'Quantity', 'PricePerUnit', 'Date'];
+    const headers = ['ProductName', 'TransactionID', 'Type', 'Quantity', 'PricePerUnit', 'TotalCost', 'Date'];
     const csvRows = [
       headers.join(','),
       ...transactionsToExport.map(row => 
@@ -60,6 +60,7 @@ export default function ExportView() {
           row.type,
           row.quantity,
           row.pricePerUnit,
+          row.quantity * row.pricePerUnit,
           `"${new Date(row.date).toISOString()}"`
         ].join(',')
       )
