@@ -1,13 +1,19 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
 import { useProducts } from '@/lib/store';
 import type { Product, Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Package, TrendingUp, TrendingDown } from 'lucide-react';
+import { DollarSign, Package, TrendingUp, TrendingDown, Calendar as CalendarIcon } from 'lucide-react';
 import { ChartContainer } from "@/components/ui/chart";
 import { Pie, PieChart, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 
 interface CalculatedStats {
@@ -43,6 +49,7 @@ const COLORS = [
 
 export default function StatsView() {
   const { products } = useProducts();
+  const [date, setDate] = useState<DateRange | undefined>();
 
   const stats = useMemo<CalculatedStats>(() => {
     let totalSalesAmount = 0;
@@ -52,14 +59,25 @@ export default function StatsView() {
     const stockValuePerProduct: CalculatedStats['stockValuePerProduct'] = [];
 
     products.forEach(product => {
-      const sales = product.transactions.filter(t => t.type === 'sale');
-      const purchases = product.transactions.filter(t => t.type === 'purchase');
+      const transactionsInDateRange = product.transactions.filter(txn => {
+        if (!date?.from) return true;
+        const txnDate = new Date(txn.date);
+        const from = new Date(date.from);
+        from.setHours(0, 0, 0, 0);
+        const to = date.to ? new Date(date.to) : new Date(date.from);
+        to.setHours(23, 59, 59, 999);
+        return txnDate >= from && txnDate <= to;
+      });
+
+      const sales = transactionsInDateRange.filter(t => t.type === 'sale');
+      const purchases = transactionsInDateRange.filter(t => t.type === 'purchase');
 
       const totalRevenue = sales.reduce((acc, t) => acc + t.quantity * t.pricePerUnit, 0);
       const totalCost = purchases.reduce((acc, t) => acc + t.quantity * t.pricePerUnit, 0);
       
-      const lastPurchasePrice = purchases.length > 0
-        ? [...purchases].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].pricePerUnit
+      const allPurchases = product.transactions.filter(t => t.type === 'purchase');
+      const lastPurchasePrice = allPurchases.length > 0
+        ? [...allPurchases].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].pricePerUnit
         : 0;
 
       const currentStockValue = product.stock * lastPurchasePrice;
@@ -84,9 +102,13 @@ export default function StatsView() {
     });
 
     return { totalSalesAmount, totalPurchaseAmount, totalStockValue, profitPerProduct, stockValuePerProduct };
-  }, [products]);
+  }, [products, date]);
 
   const totalProfit = stats.totalSalesAmount - stats.totalPurchaseAmount;
+  
+  const dateRangeLabel = date?.from 
+    ? (date.to ? `from ${format(date.from, "LLL dd, y")} to ${format(date.to, "LLL dd, y")}` : `for ${format(date.from, "LLL dd, y")}`) 
+    : 'all time';
 
   return (
     <div className="space-y-8">
@@ -94,6 +116,50 @@ export default function StatsView() {
         <h1 className="text-3xl font-bold tracking-tight">Statistics</h1>
         <p className="text-muted-foreground">Key metrics for your business performance.</p>
       </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+          <label className="text-sm font-medium">Filter by Date Range</label>
+          <Popover>
+              <PopoverTrigger asChild>
+              <Button
+                  id="date"
+                  variant={"outline"}
+                  className={cn(
+                  "w-[280px] justify-start text-left font-normal",
+                  !date && "text-muted-foreground"
+                  )}
+              >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                  date.to ? (
+                      <>
+                      {format(date.from, "LLL dd, y")} -{" "}
+                      {format(date.to, "LLL dd, y")}
+                      </>
+                  ) : (
+                      format(date.from, "LLL dd, y")
+                  )
+                  ) : (
+                  <span>Pick a date range</span>
+                  )}
+              </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={2}
+              />
+              </PopoverContent>
+          </Popover>
+          {date && (
+            <Button variant="ghost" onClick={() => setDate(undefined)}>Reset to All Time</Button>
+          )}
+      </div>
+
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -103,7 +169,7 @@ export default function StatsView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">Total sales minus total purchases</p>
+            <p className="text-xs text-muted-foreground">Sales minus purchases ({dateRangeLabel})</p>
           </CardContent>
         </Card>
         <Card>
@@ -113,7 +179,7 @@ export default function StatsView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalSalesAmount)}</div>
-            <p className="text-xs text-muted-foreground">Total revenue from all sales</p>
+            <p className="text-xs text-muted-foreground">Total revenue from sales ({dateRangeLabel})</p>
           </CardContent>
         </Card>
         <Card>
@@ -123,7 +189,7 @@ export default function StatsView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalPurchaseAmount)}</div>
-             <p className="text-xs text-muted-foreground">Total cost of all purchases</p>
+             <p className="text-xs text-muted-foreground">Total cost of purchases ({dateRangeLabel})</p>
           </CardContent>
         </Card>
         <Card>
@@ -133,7 +199,7 @@ export default function StatsView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalStockValue)}</div>
-             <p className="text-xs text-muted-foreground">Estimated value of current inventory</p>
+             <p className="text-xs text-muted-foreground">Current estimated value of inventory</p>
           </CardContent>
         </Card>
       </div>
@@ -142,6 +208,7 @@ export default function StatsView() {
         <Card>
           <CardHeader>
             <CardTitle>Profit by Product</CardTitle>
+            <p className="text-sm text-muted-foreground">Showing data {dateRangeLabel}</p>
           </CardHeader>
           <CardContent>
              <Table>
@@ -178,6 +245,7 @@ export default function StatsView() {
         <Card>
           <CardHeader>
             <CardTitle>Stock Value Distribution</CardTitle>
+            <p className="text-sm text-muted-foreground">Showing current stock value</p>
           </CardHeader>
           <CardContent className="pb-8">
             {stats.stockValuePerProduct.length > 0 ? (
