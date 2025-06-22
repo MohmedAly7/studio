@@ -70,7 +70,7 @@ interface ProductContextType {
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const { toast } = useToast();
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -80,9 +80,12 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedProducts) {
         setProducts(JSON.parse(storedProducts));
+      } else {
+        setProducts(initialProducts);
       }
     } catch (error) {
       console.error("Failed to parse products from localStorage", error);
+      setProducts(initialProducts);
     }
     setIsInitialized(true);
   }, []);
