@@ -16,14 +16,14 @@ import { usePathname } from 'next/navigation';
 import { BarChart3, Home, Package, AreaChart, FileDown, FileUp } from 'lucide-react';
 
 const Logo = () => (
-  <div className="flex items-center gap-2">
+  <div className="flex items-center gap-2 overflow-hidden">
       <svg
         width="24"
         height="24"
         viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-primary"
+        className="text-primary shrink-0"
       >
         <path
           d="M20 80L20 20L50 50L80 20L80 80"
@@ -33,7 +33,7 @@ const Logo = () => (
           strokeLinejoin="round"
         />
       </svg>
-    <h1 className="text-lg font-bold text-foreground">StockFlow</h1>
+    <h1 className="text-lg font-bold text-foreground truncate">StockFlow</h1>
   </div>
 );
 
@@ -42,7 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader>
           <Logo />
         </SidebarHeader>
@@ -111,12 +111,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          {/* Footer content can go here */}
+          <SidebarTrigger />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-start border-b bg-background px-4 sm:px-6 lg:px-8">
-            <SidebarTrigger />
+            {/* The trigger is now in the sidebar footer */}
         </header>
         <main className="p-4 sm:p-6 lg:p-8">
             {children}
