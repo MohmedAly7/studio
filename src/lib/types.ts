@@ -13,3 +13,10 @@ export type Product = {
   lowStockThreshold: number;
   transactions: Transaction[];
 };
+
+export type Withdrawal = {
+  id: string;
+  amount: number;
+  notes: string;
+  date: string;
+}

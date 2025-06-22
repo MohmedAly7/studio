@@ -7,19 +7,21 @@ import { useProducts } from '@/lib/store';
 import type { Product, Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Package, TrendingUp, TrendingDown, Calendar as CalendarIcon } from 'lucide-react';
+import { DollarSign, Package, TrendingUp, TrendingDown, Calendar as CalendarIcon, Banknote } from 'lucide-react';
 import { ChartContainer } from "@/components/ui/chart";
 import { Pie, PieChart, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import WithdrawalDialog from './withdrawal-dialog';
 
 
 interface CalculatedStats {
   totalSalesAmount: number;
   totalPurchaseAmount: number;
   totalStockValue: number;
+  totalWithdrawals: number;
   profitPerProduct: {
     productName: string;
     profit: number;
@@ -49,8 +51,9 @@ const COLORS = [
 ];
 
 export default function StatsView() {
-  const { products } = useProducts();
+  const { products, withdrawals } = useProducts();
   const [date, setDate] = useState<DateRange | undefined>();
+  const [isWithdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
 
   const stats = useMemo<CalculatedStats>(() => {
     let totalSalesAmount = 0;
@@ -89,7 +92,7 @@ export default function StatsView() {
 
       profitPerProduct.push({
         productName: product.name,
-        profit: totalRevenue + currentStockValue - totalCost,
+        profit: totalRevenue - totalCost, // Profit from sales only
         totalRevenue,
         totalCost,
         stockValue: currentStockValue,
@@ -103,10 +106,22 @@ export default function StatsView() {
       }
     });
 
-    return { totalSalesAmount, totalPurchaseAmount, totalStockValue, profitPerProduct, stockValuePerProduct };
-  }, [products, date]);
+    const withdrawalsInDateRange = withdrawals.filter(w => {
+        if (!date?.from) return true;
+        const wDate = new Date(w.date);
+        const from = new Date(date.from);
+        from.setHours(0, 0, 0, 0);
+        const to = date.to ? new Date(date.to) : new Date(date.from);
+        to.setHours(23, 59, 59, 999);
+        return wDate >= from && wDate <= to;
+    });
 
-  const totalProfit = stats.totalSalesAmount - stats.totalPurchaseAmount;
+    const totalWithdrawals = withdrawalsInDateRange.reduce((acc, w) => acc + w.amount, 0);
+
+    return { totalSalesAmount, totalPurchaseAmount, totalStockValue, totalWithdrawals, profitPerProduct, stockValuePerProduct };
+  }, [products, withdrawals, date]);
+
+  const totalProfit = stats.totalSalesAmount + stats.totalStockValue - stats.totalPurchaseAmount;
   
   const dateRangeLabel = date?.from 
     ? (date.to ? `from ${format(date.from, "LLL dd, y")} to ${format(date.to, "LLL dd, y")}` : `for ${format(date.from, "LLL dd, y")}`) 
@@ -114,9 +129,15 @@ export default function StatsView() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Statistics</h1>
-        <p className="text-muted-foreground">Key metrics for your business performance.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Statistics</h1>
+          <p className="text-muted-foreground">Key metrics for your business performance.</p>
+        </div>
+        <Button onClick={() => setWithdrawalDialogOpen(true)}>
+            <Banknote className="mr-2 h-4 w-4" />
+            Take Money
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -163,7 +184,7 @@ export default function StatsView() {
       </div>
 
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
@@ -171,7 +192,7 @@ export default function StatsView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">Sales minus purchases ({dateRangeLabel})</p>
+            <p className="text-xs text-muted-foreground">Revenue + Stock Value - Costs ({dateRangeLabel})</p>
           </CardContent>
         </Card>
         <Card>
@@ -204,6 +225,16 @@ export default function StatsView() {
              <p className="text-xs text-muted-foreground">Current estimated value of inventory</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Withdrawn</CardTitle>
+            <Banknote className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalWithdrawals)}</div>
+             <p className="text-xs text-muted-foreground">Total cash withdrawn ({dateRangeLabel})</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -231,7 +262,7 @@ export default function StatsView() {
                                 <TableCell className="text-right text-green-600">{formatCurrency(item.totalRevenue)}</TableCell>
                                 <TableCell className="text-right text-red-600">{formatCurrency(item.totalCost)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(item.stockValue)}</TableCell>
-                                <TableCell className="text-right font-bold">{formatCurrency(item.profit)}</TableCell>
+                                <TableCell className="text-right font-bold">{formatCurrency(item.totalRevenue + item.stockValue - item.totalCost)}</TableCell>
                             </TableRow>
                         ))
                     ) : (
@@ -315,6 +346,8 @@ export default function StatsView() {
           </CardContent>
         </Card>
       </div>
+
+      <WithdrawalDialog open={isWithdrawalDialogOpen} onOpenChange={setWithdrawalDialogOpen} />
     </div>
   );
 }

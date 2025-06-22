@@ -1,10 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import type { Product, Transaction } from '@/lib/types';
+import type { Product, Transaction, Withdrawal } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast"
 
-const LOCAL_STORAGE_KEY = 'stockflow-products';
+const PRODUCTS_STORAGE_KEY = 'stockflow-products';
+const WITHDRAWALS_STORAGE_KEY = 'stockflow-withdrawals';
 
 // Use a fixed date to prevent hydration mismatches from Date.now()
 const baseDate = new Date('2024-05-01T00:00:00.000Z');
@@ -57,7 +58,7 @@ const initialProducts: Product[] = [
   },
 ];
 
-interface ProductContextType {
+interface StoreContextType {
   products: Product[];
   addProduct: (productData: { name: string; initialStock: number; lowStockThreshold: number; purchasePrice: number; }) => void;
   editProduct: (productId: string, productData: { name: string; lowStockThreshold: number; }) => void;
@@ -65,37 +66,46 @@ interface ProductContextType {
   getProductById: (id: string) => Product | undefined;
   deleteProduct: (productId: string) => void;
   importTransactions: (csvData: string) => { success: boolean; message: string };
+  withdrawals: Withdrawal[];
+  addWithdrawal: (withdrawalData: { amount: number; notes: string; }) => void;
 }
 
-const ProductContext = createContext<ProductContextType | undefined>(undefined);
+const ProductContext = createContext<StoreContextType | undefined>(undefined);
 
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const { toast } = useToast();
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Load from localStorage on mount (client-side only)
   useEffect(() => {
     try {
-      const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const storedProducts = localStorage.getItem(PRODUCTS_STORAGE_KEY);
       if (storedProducts) {
         setProducts(JSON.parse(storedProducts));
       } else {
         setProducts(initialProducts);
       }
+      const storedWithdrawals = localStorage.getItem(WITHDRAWALS_STORAGE_KEY);
+      if (storedWithdrawals) {
+        setWithdrawals(JSON.parse(storedWithdrawals));
+      }
     } catch (error) {
-      console.error("Failed to parse products from localStorage", error);
+      console.error("Failed to parse data from localStorage", error);
       setProducts(initialProducts);
+      setWithdrawals([]);
     }
     setIsInitialized(true);
   }, []);
 
-  // Save to localStorage whenever products change
+  // Save to localStorage whenever data changes
   useEffect(() => {
     if (isInitialized) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
+        localStorage.setItem(WITHDRAWALS_STORAGE_KEY, JSON.stringify(withdrawals));
     }
-  }, [products, isInitialized]);
+  }, [products, withdrawals, isInitialized]);
 
   const addProduct = useCallback((productData: { name: string; initialStock: number; lowStockThreshold: number; purchasePrice: number; }) => {
     const newProduct: Product = {
@@ -292,7 +302,22 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     return products.find(p => p.id === id);
   }, [products]);
 
-  const value = { products, addProduct, editProduct, addTransaction, getProductById, deleteProduct, importTransactions };
+  const addWithdrawal = useCallback((withdrawalData: { amount: number; notes: string; }) => {
+    const newWithdrawal: Withdrawal = {
+      id: `wd-${Date.now()}`,
+      amount: withdrawalData.amount,
+      notes: withdrawalData.notes || '',
+      date: new Date().toISOString(),
+    };
+    setWithdrawals(prev => [...prev, newWithdrawal]);
+    toast({
+      title: "Withdrawal Recorded",
+      description: `A withdrawal of ${newWithdrawal.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} has been recorded.`,
+    });
+  }, [toast]);
+
+
+  const value = { products, addProduct, editProduct, addTransaction, getProductById, deleteProduct, importTransactions, withdrawals, addWithdrawal };
 
   return (
     <ProductContext.Provider value={value}>
@@ -301,7 +326,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useProducts = (): ProductContextType => {
+export const useProducts = (): StoreContextType => {
   const context = useContext(ProductContext);
   if (context === undefined) {
     throw new Error('useProducts must be used within a ProductProvider');
