@@ -28,18 +28,25 @@ const chartConfig = {
 
 export default function ReportingView() {
   const { products } = useProducts();
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(products[0]?.id || null);
+  const [selectedProductId, setSelectedProductId] = useState<string>('all');
 
   const selectedProduct = useMemo(() => {
     return products.find(p => p.id === selectedProductId);
   }, [selectedProductId, products]);
 
   const chartData = useMemo(() => {
-    if (!selectedProduct) return [];
-
     const dataByMonth: { [key: string]: { month: string; sales: number; purchases: number } } = {};
 
-    const allTransactions = [...selectedProduct.transactions].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let transactionsToProcess: Transaction[];
+
+    if (selectedProductId === 'all') {
+      transactionsToProcess = products.flatMap(p => p.transactions);
+    } else {
+      const product = products.find(p => p.id === selectedProductId);
+      transactionsToProcess = product ? product.transactions : [];
+    }
+
+    const allTransactions = [...transactionsToProcess].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     allTransactions.forEach((txn: Transaction) => {
       const date = new Date(txn.date);
@@ -57,7 +64,7 @@ export default function ReportingView() {
     });
 
     return Object.values(dataByMonth);
-  }, [selectedProduct]);
+  }, [selectedProductId, products]);
 
   return (
     <div className="space-y-8">
@@ -68,11 +75,12 @@ export default function ReportingView() {
 
       <div className="flex items-center gap-4">
         <label htmlFor="product-select" className="font-medium">Select Product:</label>
-        <Select value={selectedProductId || ''} onValueChange={setSelectedProductId}>
+        <Select value={selectedProductId} onValueChange={setSelectedProductId}>
           <SelectTrigger id="product-select" className="w-[280px]">
             <SelectValue placeholder="Select a product" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Products</SelectItem>
             {products.map(p => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -86,11 +94,15 @@ export default function ReportingView() {
         <CardHeader>
           <CardTitle>Monthly Transaction Volume</CardTitle>
           <CardDescription>
-            {selectedProduct ? `Showing sales and purchases for ${selectedProduct.name}` : 'Select a product to view its transaction history'}
+            {selectedProductId === 'all'
+              ? 'Showing sales and purchases for all products'
+              : selectedProduct
+                ? `Showing sales and purchases for ${selectedProduct.name}`
+                : 'Select a product to view its transaction history'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {selectedProduct ? (
+          {chartData.length > 0 ? (
             <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
               <BarChart accessibilityLayer data={chartData}>
                  <CartesianGrid vertical={false} />
@@ -110,7 +122,9 @@ export default function ReportingView() {
           ) : (
             <div className="flex flex-col items-center justify-center h-[300px] text-center bg-muted/50 rounded-lg">
                 <Package className="h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-muted-foreground">Select a product to see its report.</p>
+                <p className="mt-4 text-muted-foreground">
+                  {products.length > 0 ? 'No transaction data to display.' : 'Add a product to get started.'}
+                </p>
             </div>
           )}
         </CardContent>
