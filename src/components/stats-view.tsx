@@ -121,7 +121,7 @@ export default function StatsView() {
     return { totalSalesAmount, totalPurchaseAmount, totalStockValue, totalWithdrawals, profitPerProduct, stockValuePerProduct };
   }, [products, withdrawals, date]);
 
-  const totalProfit = stats.totalSalesAmount + stats.totalStockValue - stats.totalPurchaseAmount;
+  const totalProfit = stats.totalSalesAmount + stats.totalStockValue + stats.totalPurchaseAmount - stats.totalWithdrawals;
   
   const dateRangeLabel = date?.from 
     ? (date.to ? `from ${format(date.from, "LLL dd, y")} to ${format(date.to, "LLL dd, y")}` : `for ${format(date.from, "LLL dd, y")}`) 
@@ -192,7 +192,7 @@ export default function StatsView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">Revenue + Stock Value - Costs ({dateRangeLabel})</p>
+            <p className="text-xs text-muted-foreground">Revenue + Stock Value + Costs - Withdrawals ({dateRangeLabel})</p>
           </CardContent>
         </Card>
         <Card>
