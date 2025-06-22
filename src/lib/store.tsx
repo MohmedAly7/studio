@@ -57,6 +57,7 @@ interface ProductContextType {
   addTransaction: (productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => void;
   getProductById: (id: string) => Product | undefined;
   deleteProduct: (productId: string) => void;
+  importTransactions: (csvData: string) => { success: boolean; message: string };
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -86,12 +87,10 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setProducts(prev => [...prev, newProduct]);
-    setTimeout(() => {
-      toast({
-        title: "Product Added",
-        description: `${newProduct.name} has been added to your inventory.`,
-      });
-    }, 0);
+    toast({
+      title: "Product Added",
+      description: `${newProduct.name} has been added to your inventory.`,
+    });
   }, [toast]);
 
   const editProduct = useCallback((productId: string, productData: { name: string; lowStockThreshold: number; }) => {
@@ -108,59 +107,50 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       return p;
     }));
 
-    setTimeout(() => {
-        if (productName) {
-            toast({
-                title: "Product Updated",
-                description: `${productName} has been updated.`,
-            });
-        }
-    }, 0);
+    if (productName) {
+      toast({
+          title: "Product Updated",
+          description: `${productName} has been updated.`,
+      });
+    }
   }, [toast]);
 
   const deleteProduct = useCallback((productId: string) => {
+    let productName = '';
     setProducts(currentProducts => {
       const productToDelete = currentProducts.find(p => p.id === productId);
-      const updatedProducts = currentProducts.filter(p => p.id !== productId);
-      
-      if (productToDelete) {
-        setTimeout(() => {
-          toast({
-            title: "Product Deleted",
-            description: `${productToDelete.name} has been removed from your inventory.`,
-          });
-        }, 0);
-      }
-      return updatedProducts;
+      if(productToDelete) productName = productToDelete.name;
+      return currentProducts.filter(p => p.id !== productId);
     });
+    
+    if (productName) {
+        toast({
+          title: "Product Deleted",
+          description: `${productName} has been removed from your inventory.`,
+        });
+    }
   }, [toast]);
 
   const addTransaction = useCallback((productId: string, transactionData: Omit<Transaction, 'id' | 'date'>) => {
-    let outcome: 'success' | 'not_found' | 'no_stock' = 'success';
+    let outcome: 'success' | 'not_found' | 'no_stock' = 'not_found';
     let productToUpdate: Product | undefined;
 
     setProducts(currentProducts => {
-      productToUpdate = currentProducts.find(p => p.id === productId);
-
-      if (!productToUpdate) {
-        outcome = 'not_found';
-        return currentProducts;
-      }
-
-      if (transactionData.type === 'sale' && productToUpdate.stock < transactionData.quantity) {
-        outcome = 'no_stock';
-        return currentProducts;
-      }
-      
-      const newTransaction: Transaction = {
-        ...transactionData,
-        id: `txn-${Date.now()}`,
-        date: new Date().toISOString(),
-      };
-
-      return currentProducts.map(p => {
+      const updatedProducts = currentProducts.map(p => {
         if (p.id === productId) {
+          productToUpdate = p;
+          if (transactionData.type === 'sale' && p.stock < transactionData.quantity) {
+            outcome = 'no_stock';
+            return p; // Return original product if not enough stock
+          }
+
+          const newTransaction: Transaction = {
+            ...transactionData,
+            id: `txn-${Date.now()}`,
+            date: new Date().toISOString(),
+          };
           const newStock = p.stock + (transactionData.type === 'purchase' ? transactionData.quantity : -transactionData.quantity);
+          outcome = 'success';
           return {
             ...p,
             stock: newStock,
@@ -169,35 +159,109 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         }
         return p;
       });
+      return updatedProducts;
     });
 
-    setTimeout(() => {
-      if (outcome === 'success' && productToUpdate) {
-        toast({
-          title: "Transaction Recorded",
-          description: `A new ${transactionData.type} for ${productToUpdate.name} has been recorded.`,
-        });
-      } else if (outcome === 'not_found') {
-        toast({
+    if (outcome === 'success' && productToUpdate) {
+      toast({
+        title: "Transaction Recorded",
+        description: `A new ${transactionData.type} for ${productToUpdate.name} has been recorded.`,
+      });
+    } else if (outcome === 'not_found') {
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: "Product not found.",
+      });
+    } else if (outcome === 'no_stock' && productToUpdate) {
+      toast({
           variant: "destructive",
           title: "Transaction Failed",
-          description: "Product not found.",
-        });
-      } else if (outcome === 'no_stock' && productToUpdate) {
-        toast({
-            variant: "destructive",
-            title: "Transaction Failed",
-            description: `Not enough stock for ${productToUpdate.name}.`,
-        });
-      }
-    }, 0);
+          description: `Not enough stock for ${productToUpdate.name}.`,
+      });
+    }
   }, [toast]);
+
+  const importTransactions = useCallback((csvData: string): { success: boolean, message: string } => {
+    const lines = csvData.trim().split(/\r?\n/);
+    if (lines.length < 2) {
+        return { success: false, message: 'CSV file must contain a header and at least one data row.' };
+    }
+    
+    const header = lines[0].trim().split(',').map(h => h.trim());
+    const expectedHeader = ['ProductName', 'Type', 'Quantity', 'PricePerUnit', 'Date'];
+    if (header.length !== expectedHeader.length || !header.every((h, i) => h === expectedHeader[i])) {
+        return { success: false, message: `Invalid CSV header. Expected: ${expectedHeader.join(',')}` };
+    }
+
+    const tempProducts = new Map(products.map(p => [p.name.toLowerCase(), { ...p, transactions: [...p.transactions] }]));
+    let newProductCount = 0;
+    const rows = lines.slice(1);
+
+    for (let i = 0; i < rows.length; i++) {
+        const line = rows[i];
+        if (!line.trim()) continue;
+
+        const values = line.trim().split(',');
+        if (values.length !== expectedHeader.length) {
+            return { success: false, message: `Row ${i + 2}: Incorrect number of columns. Expected ${expectedHeader.length}, got ${values.length}.` };
+        }
+
+        const [productName, type, quantityStr, priceStr, dateStr] = values.map(v => v.trim());
+        
+        if (type !== 'sale' && type !== 'purchase') {
+             return { success: false, message: `Row ${i + 2}: Invalid transaction type '${type}'. Must be 'sale' or 'purchase'.` };
+        }
+        const quantity = parseInt(quantityStr, 10);
+        const pricePerUnit = parseFloat(priceStr);
+        const date = new Date(dateStr);
+
+        if (isNaN(quantity) || quantity <= 0) {
+             return { success: false, message: `Row ${i + 2}: Invalid quantity '${quantityStr}'. Must be a positive number.` };
+        }
+         if (isNaN(pricePerUnit) || pricePerUnit < 0) {
+             return { success: false, message: `Row ${i + 2}: Invalid price '${priceStr}'. Must be a non-negative number.` };
+        }
+         if (isNaN(date.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+             return { success: false, message: `Row ${i + 2}: Invalid date format '${dateStr}'. Use YYYY-MM-DD.` };
+        }
+        
+        const productNameLower = productName.toLowerCase();
+        if (!tempProducts.has(productNameLower)) {
+            tempProducts.set(productNameLower, {
+                id: `prod-${Date.now()}-${newProductCount++}`,
+                name: productName,
+                stock: 0,
+                lowStockThreshold: 10,
+                transactions: [],
+            });
+        }
+        
+        const product = tempProducts.get(productNameLower)!;
+        
+        if (type === 'sale' && product.stock < quantity) {
+            return { success: false, message: `Row ${i + 2}: Not enough stock for '${productName}' to complete sale. Stock: ${product.stock}, Required: ${quantity}.` };
+        }
+        
+        product.stock += (type === 'purchase' ? quantity : -quantity);
+        product.transactions.push({
+            id: `txn-${Date.now()}-${i}`,
+            type: type as 'sale' | 'purchase',
+            quantity,
+            pricePerUnit,
+            date: date.toISOString(),
+        });
+    }
+    
+    setProducts(Array.from(tempProducts.values()));
+    return { success: true, message: `${rows.length} transaction(s) imported successfully.` };
+  }, [products]);
 
   const getProductById = useCallback((id: string) => {
     return products.find(p => p.id === id);
   }, [products]);
 
-  const value = { products, addProduct, editProduct, addTransaction, getProductById, deleteProduct };
+  const value = { products, addProduct, editProduct, addTransaction, getProductById, deleteProduct, importTransactions };
 
   return (
     <ProductContext.Provider value={value}>
