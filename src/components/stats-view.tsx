@@ -25,6 +25,7 @@ interface CalculatedStats {
     profit: number;
     totalRevenue: number;
     totalCost: number;
+    stockValue: number;
   }[];
   stockValuePerProduct: {
     name: string;
@@ -88,9 +89,10 @@ export default function StatsView() {
 
       profitPerProduct.push({
         productName: product.name,
-        profit: totalRevenue - totalCost,
+        profit: totalRevenue + currentStockValue - totalCost,
         totalRevenue,
         totalCost,
+        stockValue: currentStockValue,
       });
 
       if (currentStockValue > 0) {
@@ -217,6 +219,7 @@ export default function StatsView() {
                         <TableHead>Product</TableHead>
                         <TableHead className="text-right">Total Revenue</TableHead>
                         <TableHead className="text-right">Total Cost</TableHead>
+                        <TableHead className="text-right">Stock Value</TableHead>
                         <TableHead className="text-right">Profit</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -227,12 +230,13 @@ export default function StatsView() {
                                 <TableCell className="font-medium">{item.productName}</TableCell>
                                 <TableCell className="text-right text-green-600">{formatCurrency(item.totalRevenue)}</TableCell>
                                 <TableCell className="text-right text-red-600">{formatCurrency(item.totalCost)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(item.stockValue)}</TableCell>
                                 <TableCell className="text-right font-bold">{formatCurrency(item.profit)}</TableCell>
                             </TableRow>
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={4} className="h-24 text-center">
+                            <TableCell colSpan={5} className="h-24 text-center">
                                 No data to display.
                             </TableCell>
                         </TableRow>
