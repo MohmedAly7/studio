@@ -17,7 +17,11 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    unoptimized: true, // Required for static export
   },
+  output: 'export', // Enable static export for Capacitor
+  trailingSlash: true, // Required for static export
+  distDir: 'out', // Output directory for static export
 };
 
 export default nextConfig;
